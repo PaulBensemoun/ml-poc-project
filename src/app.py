@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -37,6 +36,8 @@ def build_app() -> None:
         """
     )
 
+    st.markdown("")  # breathing room
+
     st.divider()
     st.subheader("Model performance")
     if MODEL_METRICS_FILE.exists():
@@ -48,28 +49,60 @@ def build_app() -> None:
             "`results/model_metrics.csv`."
         )
 
+    st.markdown("")
     st.divider()
     _render_customer_product_insights()
 
+    st.markdown("")
     st.divider()
     _render_next_best_product_demo()
 
 
+def _segmentation_by_spend(customer_feats: pd.DataFrame) -> pd.DataFrame:
+    """Low (bottom 50%), Medium (50–90%), High (top 10%) — counts, avg spend, revenue share."""
+    spend = customer_feats["total_spend"].astype(float)
+    total_rev = spend.sum()
+    q50 = float(spend.quantile(0.5))
+    q90 = float(spend.quantile(0.9))
+
+    low = spend[spend <= q50]
+    med = spend[(spend > q50) & (spend <= q90)]
+    high = spend[spend > q90]
+
+    def row(label: str, s: pd.Series) -> dict[str, Any]:
+        n = int(s.shape[0])
+        avg = float(s.mean()) if n else 0.0
+        share = float(s.sum() / total_rev * 100) if total_rev > 0 else 0.0
+        return {
+            "Segment": label,
+            "Customers": f"{n:,}",
+            "Avg spend": f"{avg:,.2f}",
+            "Revenue share": f"{share:.1f}%",
+        }
+
+    return pd.DataFrame(
+        [
+            row("Low value (bottom 50%)", low),
+            row("Medium value (50th–90th pct.)", med),
+            row("High value (top 10%)", high),
+        ]
+    )
+
+
 def _render_customer_product_insights() -> None:
     st.subheader("Customer & Product Insights")
+
     customer_feats, product_feats, _purchased, descr = _reload_clean_dataset_for_demo()
 
     st.markdown(
         """
-        Quick read on transactional behaviour at a glance:
-
-        **Product side** — Frequency of purchase identifies the staples and hero SKUs merchandising teams should spotlight.
-
-        **Customer side** — How total spend spreads across shoppers highlights whether revenue is concentrated in a few whale accounts versus a broader base—a useful segmentation proxy for prioritising personalised offers versus mass campaigns.
+        **Product catalogue** — Line frequency reveals hero SKUs. **Spend mix** — Segmentation
+        below shows where customers and revenue concentrate (stable under heavy-tailed spend).
         """
     )
+    st.markdown("")
 
-    st.markdown("**A — Top catalogue items (invoice lines)**")
+    st.markdown("**A · Top catalogue items (invoice lines)**")
     top_products = product_feats.nlargest(10, "product_popularity").copy()
     top_products["Description"] = top_products["StockCode"].map(descr)
     top_products = top_products.rename(
@@ -77,20 +110,13 @@ def _render_customer_product_insights() -> None:
     ).loc[:, ["Description", "Popularity (line appearances)"]]
     st.dataframe(top_products, use_container_width=True, hide_index=True)
 
-    st.markdown("**B — Distribution of customer total spend**")
-    fig, ax = plt.subplots(figsize=(10, 3.8))
-    ax.hist(
-        customer_feats["total_spend"].astype(float).values,
-        bins=30,
-        color="#4e79a7",
-        edgecolor="#ffffff",
-        linewidth=0.5,
+    st.markdown("")
+    st.markdown("**B · Customer value segments (total spend)**")
+    seg_tbl = _segmentation_by_spend(customer_feats)
+    st.dataframe(seg_tbl, use_container_width=True, hide_index=True)
+    st.caption(
+        "Segments use spend quantiles on the cleaned base — revenue share sums to ~100%."
     )
-    ax.set_xlabel("Total spend")
-    ax.set_ylabel("Number of customers")
-    ax.set_title("Where customers sit on the spend curve")
-    plt.tight_layout()
-    st.pyplot(fig, clear_figure=True)
 
 
 @st.cache_data(show_spinner="Loading recommendation data…")
@@ -185,6 +211,34 @@ def _feature_matrix_for_candidates(
     return pd.DataFrame(rows)
 
 
+def _compact_reasons_for_row(
+    stock_code: str,
+    product_feats: pd.DataFrame,
+    cust_spend: float,
+    pop_q75: float,
+    price_q75: float,
+    spend_q90: float,
+) -> str:
+    """Up to two short reasons from fixed vocabulary."""
+    pf = product_feats.set_index(product_feats["StockCode"].astype(str))
+    if stock_code not in pf.index:
+        return "Matches customer profile"
+    pr = pf.loc[stock_code]
+    pop = float(pr["product_popularity"])
+    price = float(pr["average_price"])
+    reasons: list[str] = []
+    if pop >= pop_q75:
+        reasons.append("Popular product")
+    if len(reasons) < 2 and price >= price_q75:
+        reasons.append("High value item")
+    profile = cust_spend > spend_q90
+    if len(reasons) < 2 and profile:
+        reasons.append("Matches customer profile")
+    if not reasons:
+        reasons.append("Matches customer profile")
+    return "; ".join(reasons[:2])
+
+
 def _render_next_best_product_demo() -> None:
     st.subheader("Interactive recommendation")
 
@@ -234,7 +288,7 @@ def _render_next_best_product_demo() -> None:
             st.metric("Number of transactions", f"{float(r['number_of_transactions']):,.0f}")
         with m4:
             st.metric("Avg basket value", f"{float(r['avg_basket_value']):,.2f}")
-        st.divider()
+        st.markdown("")
 
     catalog = product_feats["StockCode"].astype(str).unique().tolist()
     bought = purchased_by_customer.get(chosen, set())
@@ -268,57 +322,80 @@ def _render_next_best_product_demo() -> None:
     cand_df = cand_df.sort_values("proba", ascending=False).head(5)
     cand_df["Description"] = cand_df["StockCode"].map(lambda s: descr.get(s, ""))
 
+    cust_spend = float(
+        customer_feats.loc[
+            customer_feats["Customer ID"].astype(str) == chosen, "total_spend"
+        ].iloc[0]
+    )
+    pop_q75 = float(product_feats["product_popularity"].quantile(0.75))
+    price_q75 = float(product_feats["average_price"].quantile(0.75))
+    spend_q90 = float(customer_feats["total_spend"].quantile(0.90))
+
     cfg = MODELS[model_key]
+
+    st.markdown("")
     st.divider()
     st.subheader("Top Recommended Products")
-    st.caption("Products ranked by predicted probability of purchase.")
+    st.markdown("###### Top products ranked by predicted probability of purchase")
     st.caption(
-        f"Ranked using **{cfg['name']}** (Logistic Regression vs XGBoost: best F1 on held-out metrics)."
+        f"Model: **{cfg['name']}** (best F1 among Logistic Regression vs XGBoost on held-out metrics)."
     )
+    st.markdown("")
 
-    out = cand_df.rename(
-        columns={"StockCode": "Product (Stock Code)", "proba": "Predicted probability"}
-    )
-    out["Predicted probability"] = out["Predicted probability"].map(
-        lambda x: f"{float(x) * 100:.1f}%"
-    )
-    st.dataframe(
-        out[["Product (Stock Code)", "Description", "Predicted probability"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    for ix, (_, row) in enumerate(cand_df.reset_index(drop=True).iterrows(), start=1):
+        p = float(row["proba"])
+        sk = str(row["StockCode"])
+        ds = str(row.get("Description", "") or "").strip() or "—"
+        c0, c1, c2, c3, c4 = st.columns([0.45, 1.0, 2.8, 1.0, 3.2])
+        with c0:
+            st.markdown(f"**#{ix}**")
+        with c1:
+            st.caption(sk)
+        with c2:
+            st.caption(ds[:120] + ("…" if len(ds) > 120 else ""))
+        with c3:
+            st.markdown(f"**{p * 100:.1f}%**")
+        with c4:
+            st.progress(min(max(p, 0.0), 1.0))
 
-    _pop_q75 = float(product_feats["product_popularity"].quantile(0.75))
-    _price_q75 = float(product_feats["average_price"].quantile(0.75))
-    _spend_q75 = float(customer_feats["total_spend"].quantile(0.75))
-    _pf_ix = product_feats.set_index(product_feats["StockCode"].astype(str))
+    avg_top5 = float(cand_df["proba"].mean())
+    pct = avg_top5 * 100
 
+    st.markdown("")
     st.divider()
-    st.subheader("Why these recommendations?")
+    st.subheader("Business impact (simulation)")
+    ic1, ic2 = st.columns([1.4, 1.6])
+    with ic1:
+        st.metric("Avg predicted probability (top 5)", f"{pct:.1f}%")
+    with ic2:
+        st.markdown(
+            f"*If shown to this customer, estimated conversion likelihood is **{pct:.1f}%** "
+            "(mean over the ranked offers).*"
+        )
     st.caption(
-        "Plain-language cues from the same features the model sees — not full model explainability."
+        "This is a simplified proxy to estimate potential uplift from personalised recommendations."
     )
-    _cust_spend = customer_feats[customer_feats["Customer ID"].astype(str) == chosen]
-    if not _cust_spend.empty and float(_cust_spend.iloc[0]["total_spend"]) >= _spend_q75:
-        st.markdown("- Customer with high purchasing power")
 
-    for _, _row in cand_df.iterrows():
-        _sk = str(_row["StockCode"])
-        _des = str(_row.get("Description", "") or "")
-        if _sk not in _pf_ix.index:
-            continue
-        _pr = _pf_ix.loc[_sk]
-        _bullets: list[str] = []
-        if float(_pr["product_popularity"]) >= _pop_q75:
-            _bullets.append("Popular product")
-        if float(_pr["average_price"]) >= _price_q75:
-            _bullets.append("High value item")
-        _title = _des.strip() if _des.strip() else "(no description)"
-        st.markdown(f"**{_sk}** · {_title}")
-        if _bullets:
-            st.markdown("\n".join(f"- {b}" for b in _bullets))
-        else:
-            st.caption("No popularity or price flag; score reflects the full feature mix.")
+    reasons_rows = [
+        {
+            "Product": f"{sk} · {(str(descr.get(sk, '')) or '—')[:60]}",
+            "Reason": _compact_reasons_for_row(
+                sk,
+                product_feats,
+                cust_spend,
+                pop_q75,
+                price_q75,
+                spend_q90,
+            ),
+        }
+        for sk in cand_df["StockCode"].astype(str).tolist()
+    ]
+    reasons_df = pd.DataFrame(reasons_rows)
+
+    st.markdown("")
+    st.divider()
+    st.subheader("Why these picks?")
+    st.dataframe(reasons_df, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":
