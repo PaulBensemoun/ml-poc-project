@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -49,7 +50,48 @@ def build_app() -> None:
         )
 
     st.divider()
+    _render_customer_product_insights()
+
+    st.divider()
     _render_next_best_product_demo()
+
+
+def _render_customer_product_insights() -> None:
+    st.subheader("Customer & Product Insights")
+    customer_feats, product_feats, _purchased, descr = _reload_clean_dataset_for_demo()
+
+    st.markdown(
+        """
+        Quick read on transactional behaviour at a glance:
+
+        **Product side** — Frequency of purchase identifies the staples and hero SKUs merchandising teams should spotlight.
+
+        **Customer side** — How total spend spreads across shoppers highlights whether revenue is concentrated in a few whale accounts versus a broader base—a useful segmentation proxy for prioritising personalised offers versus mass campaigns.
+        """
+    )
+
+    st.markdown("**A — Top catalogue items (invoice lines)**")
+    top_products = product_feats.nlargest(10, "product_popularity").copy()
+    top_products["Description"] = top_products["StockCode"].map(descr)
+    top_products = top_products.rename(
+        columns={"product_popularity": "Popularity (line appearances)"}
+    ).loc[:, ["Description", "Popularity (line appearances)"]]
+    st.dataframe(top_products, use_container_width=True, hide_index=True)
+
+    st.markdown("**B — Distribution of customer total spend**")
+    fig, ax = plt.subplots(figsize=(10, 3.8))
+    ax.hist(
+        customer_feats["total_spend"].astype(float).values,
+        bins=30,
+        color="#4e79a7",
+        edgecolor="#ffffff",
+        linewidth=0.5,
+    )
+    ax.set_xlabel("Total spend")
+    ax.set_ylabel("Number of customers")
+    ax.set_title("Where customers sit on the spend curve")
+    plt.tight_layout()
+    st.pyplot(fig, clear_figure=True)
 
 
 @st.cache_data(show_spinner="Loading recommendation data…")
