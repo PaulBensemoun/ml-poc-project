@@ -1,0 +1,4 @@
+model_key,model_name,model_path,accuracy,precision,recall,f1
+logistic_regression,Logistic Regression,/Users/paulbensemoun/Documents/ml_poc/project/ml-poc-project/models/logistic_regression.joblib,0.5172413793103449,0.5,0.5,0.5
+random_forest,Random Forest,/Users/paulbensemoun/Documents/ml_poc/project/ml-poc-project/models/random_forest.joblib,0.4482758620689655,0.4,0.2857142857142857,0.3333333333333333
+xgboost,XGBoost,/Users/paulbensemoun/Documents/ml_poc/project/ml-poc-project/models/xgboost.joblib,0.5172413793103449,0.5,0.42857142857142855,0.46153846153846156
