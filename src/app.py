@@ -290,6 +290,35 @@ def _render_next_best_product_demo() -> None:
             st.metric("Avg basket value", f"{float(r['avg_basket_value']):,.2f}")
         st.markdown("")
 
+    st.markdown("###### Recommendation scenario")
+    st.markdown(
+        f"""
+For **customer `{chosen}`**, we emulate a plausible **online shop visit**: scoring focuses on SKU–customer pairs **not purchased before** by this shopper,
+so rankings reflect a realistic **browse or replenishment journey**. The objective is personalised **cross-sell**: raise **conversion** and grow **basket size** with offers tailored to this account.
+        """
+    )
+    _spend_all = customer_feats["total_spend"].astype(float)
+    _q50 = float(_spend_all.quantile(0.5))
+    _q90 = float(_spend_all.quantile(0.90))
+    _ts = (
+        float(pf_row.iloc[0]["total_spend"])
+        if not pf_row.empty
+        else _q50
+    )
+    if _ts > _q90:
+        st.success(
+            f"**High-value customer** (`{chosen}`) — spend in the top ~10% of shoppers in this base."
+        )
+    elif _ts > _q50:
+        st.info(
+            f"**Medium-value customer** (`{chosen}`) — spend between the median and the top decile."
+        )
+    else:
+        st.warning(
+            f"**Low-value customer** (`{chosen}`) — spend at or below the median spend."
+        )
+
+    st.markdown("")
     catalog = product_feats["StockCode"].astype(str).unique().tolist()
     bought = purchased_by_customer.get(chosen, set())
     unseen = [c for c in catalog if c not in bought]
