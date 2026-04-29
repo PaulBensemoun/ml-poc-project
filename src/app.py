@@ -29,10 +29,12 @@ def build_app() -> None:
     st.markdown(
         """
         **Objective:** Increase basket size and conversion by guiding each customer toward
-        the offer they are most likely to buy next.
+        offers that best fit their shopping patterns.
 
-        **How it works:** A trained classifier assigns a purchase probability for each
-        customer–product pair; we prioritize products with the strongest predicted uplift.
+        **How it works:** The model learns from historical purchase patterns and customer
+        behavior to estimate the affinity between a customer and products they have not yet
+        purchased. It identifies which items are most likely to be relevant for a given
+        customer based on similarities with past transactions.
         """
     )
 
@@ -56,6 +58,21 @@ def build_app() -> None:
     st.markdown("")
     st.divider()
     _render_next_best_product_demo()
+
+    st.markdown("")
+    st.divider()
+    st.subheader("How this recommendation system can be used")
+    st.markdown(
+        """
+        - **Homepage personalization** — Show top recommended products when the user logs in.
+
+        - **Email campaigns** — Send personalized product suggestions based on predicted preferences.
+
+        - **Cart upsell** — Recommend complementary or higher-value items during checkout.
+
+        - **CRM / sales targeting** — Help marketing teams target high-value customers with tailored offers.
+        """
+    )
 
 
 def _segmentation_by_spend(customer_feats: pd.DataFrame) -> pd.DataFrame:
@@ -92,7 +109,7 @@ def _segmentation_by_spend(customer_feats: pd.DataFrame) -> pd.DataFrame:
 def _render_customer_product_insights() -> None:
     st.subheader("Customer & Product Insights")
 
-    customer_feats, product_feats, _purchased, descr = _reload_clean_dataset_for_demo()
+    customer_feats, product_feats, _purchased, descr, _, _, _ = _reload_clean_dataset_for_demo()
 
     st.markdown(
         """
@@ -125,6 +142,9 @@ def _reload_clean_dataset_for_demo() -> tuple[
     pd.DataFrame,
     dict[str, set[str]],
     pd.Series,
+    pd.Series,
+    pd.DataFrame,
+    pd.Series,
 ]:
     """Rebuild customer/product aggregates using the same rules as ``load_dataset_split``."""
     df = pd.read_csv(DATA_DIR / "online_retail_II.csv")
@@ -149,12 +169,36 @@ def _reload_clean_dataset_for_demo() -> tuple[
         average_price=("Price", "mean"),
     )
 
+    spend_q90 = float(customer_feats["total_spend"].quantile(0.9))
+    hv_ids = set(
+        customer_feats.loc[
+            customer_feats["total_spend"].astype(float) >= spend_q90, "Customer ID"
+        ].astype(str)
+    )
+    df_hv = df["Customer ID"].isin(hv_ids)
+    hv_line_counts = df.loc[df_hv].groupby("StockCode").size()
+    total_line_counts = df.groupby("StockCode").size()
+    product_hv_line_share = (hv_line_counts / total_line_counts).fillna(0.0)
+
+    inv_skus = df[["Invoice", "StockCode"]].copy()
+    inv_to_skus_map = inv_skus.groupby("Invoice")["StockCode"].apply(
+        lambda s: frozenset(s.astype(str).unique())
+    )
+
     purchased = df[["Customer ID", "StockCode"]].drop_duplicates()
     purchased_by_customer: dict[str, set[str]] = (
         purchased.groupby("Customer ID")["StockCode"].apply(set).to_dict()
     )
     descr = df.groupby("StockCode")["Description"].first()
-    return customer_feats, product_feats, purchased_by_customer, descr
+    return (
+        customer_feats,
+        product_feats,
+        purchased_by_customer,
+        descr,
+        product_hv_line_share,
+        inv_skus,
+        inv_to_skus_map,
+    )
 
 
 def _pick_best_classifier_key() -> str:
@@ -211,38 +255,82 @@ def _feature_matrix_for_candidates(
     return pd.DataFrame(rows)
 
 
+def _co_purchase_invoice_counts(
+    stock_codes: list[str],
+    bought: set[str],
+    inv_skus: pd.DataFrame,
+    inv_to_skus_map: pd.Series,
+) -> dict[str, int]:
+    """Count invoices where the product appears alongside any SKU the customer already bought."""
+    if not bought:
+        return {sc: 0 for sc in stock_codes}
+    out: dict[str, int] = {}
+    for sc in stock_codes:
+        invs = inv_skus.loc[inv_skus["StockCode"].astype(str) == sc, "Invoice"].unique()
+        c = 0
+        for inv in invs:
+            skus = inv_to_skus_map.get(inv, frozenset())
+            if skus & bought:
+                c += 1
+        out[sc] = c
+    return out
+
+
 def _compact_reasons_for_row(
     stock_code: str,
     product_feats: pd.DataFrame,
     cust_spend: float,
+    cust_avg_basket: float,
     pop_q75: float,
     price_q75: float,
     spend_q90: float,
+    hv_line_share: float,
+    co_purchase_invoices: int,
+    max_co_in_batch: int,
 ) -> str:
-    """Up to two short reasons from fixed vocabulary."""
+    """Up to two short, heuristic explanations (deterministic, business-oriented)."""
     pf = product_feats.set_index(product_feats["StockCode"].astype(str))
     if stock_code not in pf.index:
-        return "Matches customer profile"
+        return "Aligned with this customer's history and segment"
     pr = pf.loc[stock_code]
     pop = float(pr["product_popularity"])
     price = float(pr["average_price"])
     reasons: list[str] = []
-    if pop >= pop_q75:
-        reasons.append("Popular product")
-    if len(reasons) < 2 and price >= price_q75:
-        reasons.append("High value item")
-    profile = cust_spend > spend_q90
-    if len(reasons) < 2 and profile:
-        reasons.append("Matches customer profile")
+
+    strong_co = co_purchase_invoices >= 3 or (
+        co_purchase_invoices > 0 and co_purchase_invoices == max_co_in_batch
+    )
+    if strong_co:
+        reasons.append(
+            "Often bought together with products this customer already purchased"
+        )
+    if len(reasons) < 2 and hv_line_share >= 0.30:
+        reasons.append("Frequently purchased by similar high-value customers")
+    if len(reasons) < 2 and pop >= pop_q75:
+        reasons.append("Popular product across the catalogue")
+    if len(reasons) < 2 and cust_avg_basket > 0:
+        low, high = 0.4 * cust_avg_basket, 2.5 * cust_avg_basket
+        if low <= price <= high:
+            reasons.append("Matches customer's typical basket size")
+    if len(reasons) < 2 and cust_spend >= spend_q90 and price >= price_q75:
+        reasons.append("High-value item aligned with this customer profile")
     if not reasons:
-        reasons.append("Matches customer profile")
+        reasons.append("Aligned with this customer's history and segment")
     return "; ".join(reasons[:2])
 
 
 def _render_next_best_product_demo() -> None:
     st.subheader("Interactive recommendation")
 
-    customer_feats, product_feats, purchased_by_customer, descr = _reload_clean_dataset_for_demo()
+    (
+        customer_feats,
+        product_feats,
+        purchased_by_customer,
+        descr,
+        product_hv_line_share,
+        inv_skus,
+        inv_to_skus_map,
+    ) = _reload_clean_dataset_for_demo()
 
     model_key = _pick_best_classifier_key()
     model, load_err = _load_classifier_model(model_key)
@@ -294,7 +382,7 @@ def _render_next_best_product_demo() -> None:
     st.markdown(
         f"""
 For **customer `{chosen}`**, we emulate a plausible **online shop visit**: scoring focuses on SKU–customer pairs **not purchased before** by this shopper,
-so rankings reflect a realistic **browse or replenishment journey**. The objective is personalised **cross-sell**: raise **conversion** and grow **basket size** with offers tailored to this account.
+so rankings reflect a realistic **browse or replenishment journey**. The objective is personalised **cross-sell**: grow **basket size** and encourage **additional purchases** with offers tailored to this account.
         """
     )
     _spend_all = customer_feats["total_spend"].astype(float)
@@ -365,11 +453,26 @@ so rankings reflect a realistic **browse or replenishment journey**. The objecti
     st.markdown("")
     st.divider()
     st.subheader("Top Recommended Products")
-    st.markdown("###### Top products ranked by predicted probability of purchase")
+    st.markdown("###### Top products ranked by recommendation score (relative ranking signal)")
     st.caption(
         f"Model: **{cfg['name']}** (best F1 among Logistic Regression vs XGBoost on held-out metrics)."
     )
+    st.caption(
+        "Scores represent relative likelihood based on historical patterns, not actual "
+        "conversion probabilities."
+    )
     st.markdown("")
+    hc0, hc1, hc2, hc3, hc4 = st.columns([0.45, 1.0, 2.8, 1.0, 3.2])
+    with hc0:
+        st.caption("Rank")
+    with hc1:
+        st.caption("SKU")
+    with hc2:
+        st.caption("Description")
+    with hc3:
+        st.caption("Score")
+    with hc4:
+        st.caption("Relative strength")
 
     for ix, (_, row) in enumerate(cand_df.reset_index(drop=True).iterrows(), start=1):
         p = float(row["proba"])
@@ -395,14 +498,28 @@ so rankings reflect a realistic **browse or replenishment journey**. The objecti
     st.subheader("Business impact (simulation)")
     ic1, ic2 = st.columns([1.4, 1.6])
     with ic1:
-        st.metric("Avg predicted probability (top 5)", f"{pct:.1f}%")
+        st.metric("Avg recommendation score (top 5)", f"{pct:.1f}%")
     with ic2:
         st.markdown(
-            f"*If shown to this customer, estimated conversion likelihood is **{pct:.1f}%** "
-            "(mean over the ranked offers).*"
+            f"*Mean **relative purchase likelihood** for the top five offers is **{pct:.1f}%** "
+            "on the model’s ranking scale (not a calibrated purchase probability).*"
+        )
+        st.caption(
+            "Scores represent relative likelihood based on historical patterns, not actual "
+            "conversion probabilities."
         )
     st.caption(
-        "This is a simplified proxy to estimate potential uplift from personalised recommendations."
+        "This is a simplified proxy to discuss potential uplift from personalised "
+        "recommendations—not a forecast of real-world conversion."
+    )
+
+    top_skus = cand_df["StockCode"].astype(str).tolist()
+    co_counts = _co_purchase_invoice_counts(
+        top_skus, bought, inv_skus, inv_to_skus_map
+    )
+    max_co = max(co_counts.values(), default=0)
+    cust_avg_basket = (
+        float(pf_row.iloc[0]["avg_basket_value"]) if not pf_row.empty else 0.0
     )
 
     reasons_rows = [
@@ -412,12 +529,16 @@ so rankings reflect a realistic **browse or replenishment journey**. The objecti
                 sk,
                 product_feats,
                 cust_spend,
+                cust_avg_basket,
                 pop_q75,
                 price_q75,
                 spend_q90,
+                float(product_hv_line_share.get(sk, 0.0)),
+                co_counts.get(sk, 0),
+                max_co,
             ),
         }
-        for sk in cand_df["StockCode"].astype(str).tolist()
+        for sk in top_skus
     ]
     reasons_df = pd.DataFrame(reasons_rows)
 
