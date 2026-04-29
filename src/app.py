@@ -288,6 +288,38 @@ def _render_next_best_product_demo() -> None:
         hide_index=True,
     )
 
+    _pop_q75 = float(product_feats["product_popularity"].quantile(0.75))
+    _price_q75 = float(product_feats["average_price"].quantile(0.75))
+    _spend_q75 = float(customer_feats["total_spend"].quantile(0.75))
+    _pf_ix = product_feats.set_index(product_feats["StockCode"].astype(str))
+
+    st.divider()
+    st.subheader("Why these recommendations?")
+    st.caption(
+        "Plain-language cues from the same features the model sees — not full model explainability."
+    )
+    _cust_spend = customer_feats[customer_feats["Customer ID"].astype(str) == chosen]
+    if not _cust_spend.empty and float(_cust_spend.iloc[0]["total_spend"]) >= _spend_q75:
+        st.markdown("- Customer with high purchasing power")
+
+    for _, _row in cand_df.iterrows():
+        _sk = str(_row["StockCode"])
+        _des = str(_row.get("Description", "") or "")
+        if _sk not in _pf_ix.index:
+            continue
+        _pr = _pf_ix.loc[_sk]
+        _bullets: list[str] = []
+        if float(_pr["product_popularity"]) >= _pop_q75:
+            _bullets.append("Popular product")
+        if float(_pr["average_price"]) >= _price_q75:
+            _bullets.append("High value item")
+        _title = _des.strip() if _des.strip() else "(no description)"
+        st.markdown(f"**{_sk}** · {_title}")
+        if _bullets:
+            st.markdown("\n".join(f"- {b}" for b in _bullets))
+        else:
+            st.caption("No popularity or price flag; score reflects the full feature mix.")
+
 
 if __name__ == "__main__":
     build_app()
