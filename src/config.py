@@ -30,12 +30,20 @@ MODEL_METRICS_FILE = RESULTS_DIR / "model_metrics.csv"
 STREAMLIT_HOST = "localhost"
 STREAMLIT_PORT = 8501
 
-# Students must replace this example with their trained models.
-# Each entry must point to a serialized model saved as `.joblib`, `.pkl`, or `.pickle`.
 MODELS = {
-    "model_a": {
-        "name": "Model A",
-        "description": "A simple baseline model.",
-        "path": MODELS_DIR / "model_a.pkl",
+    "logistic_regression": {
+        "name": "Logistic Regression",
+        "description": "Linear classifier with standardized features (Pipeline with StandardScaler).",
+        "path": MODELS_DIR / "logistic_regression.joblib",
+    },
+    "random_forest": {
+        "name": "Random Forest",
+        "description": "Ensemble of decision trees for non-linear patterns.",
+        "path": MODELS_DIR / "random_forest.joblib",
+    },
+    "xgboost": {
+        "name": "XGBoost",
+        "description": "Gradient-boosted trees (XGBClassifier).",
+        "path": MODELS_DIR / "xgboost.joblib",
     },
 }
