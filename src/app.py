@@ -5,14 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
 
 from config import DATA_DIR, MODEL_METRICS_FILE, MODELS
-from data import load_dataset_split
-from model_io import load_model
 
 
 def build_app() -> None:
@@ -152,7 +151,7 @@ def _load_classifier_model(model_key: str) -> tuple[Any | None, str | None]:
     if not path.exists():
         return None, f"Missing model file: {path}"
     try:
-        return load_model(path), None
+        return joblib.load(path), None
     except Exception as exc:  # pragma: no cover - defensive for Streamlit UX
         return None, str(exc)
 
@@ -188,15 +187,6 @@ def _feature_matrix_for_candidates(
 
 def _render_next_best_product_demo() -> None:
     st.subheader("Interactive recommendation")
-
-    _split_ok = False
-    try:
-        load_dataset_split()
-        _split_ok = True
-    except Exception:
-        pass
-    if not _split_ok:
-        st.warning("Could not load the dataset split. Check `data.load_dataset_split()` and raw data.")
 
     customer_feats, product_feats, purchased_by_customer, descr = _reload_clean_dataset_for_demo()
 
