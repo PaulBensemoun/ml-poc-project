@@ -22,25 +22,23 @@ def build_app() -> None:
     fixed because ``scripts/main.py`` launches Streamlit with this module.
     """
 
-    st.set_page_config(page_title="ML Project Template", layout="wide")
-
-    st.title("Machine Learning Proof of Concept")
-    st.write(
-        "Update `src/app.py` to present your business objective, data insights, "
-        "model comparison, and final demo."
+    st.set_page_config(
+        page_title="Next Best Product Recommendation Engine", layout="wide"
     )
 
-    st.subheader("Expected student customizations")
+    st.title("Next Best Product Recommendation Engine")
     st.markdown(
         """
-        - Describe the business objective and dataset.
-        - Show relevant plots and key findings.
-        - Explain the selected models and their trade-offs.
-        - Add widgets or predictions if your project needs an interactive demo.
+        **Objective:** Increase basket size and conversion by guiding each customer toward
+        the offer they are most likely to buy next.
+
+        **How it works:** A trained classifier assigns a purchase probability for each
+        customer–product pair; we prioritize products with the strongest predicted uplift.
         """
     )
 
-    st.subheader("Latest evaluation results")
+    st.divider()
+    st.subheader("Model performance")
     if MODEL_METRICS_FILE.exists():
         metrics_df = pd.read_csv(MODEL_METRICS_FILE)
         st.dataframe(metrics_df, use_container_width=True)
@@ -147,7 +145,7 @@ def _feature_matrix_for_candidates(
 
 
 def _render_next_best_product_demo() -> None:
-    st.subheader("Next Best Product Demo")
+    st.subheader("Interactive recommendation")
 
     _split_ok = False
     try:
@@ -188,7 +186,23 @@ def _render_next_best_product_demo() -> None:
         st.info("No customers found in dataset.")
         return
 
-    chosen = st.selectbox("Select a Customer ID", options=cust_ids, index=0)
+    st.markdown("###### Customer selection")
+    chosen = st.selectbox("Select a Customer", options=cust_ids, index=0)
+
+    pf_row = customer_feats[customer_feats["Customer ID"].astype(str) == chosen]
+    if not pf_row.empty:
+        r = pf_row.iloc[0]
+        st.markdown("**Customer snapshot**")
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.metric("Total spend", f"{float(r['total_spend']):,.2f}")
+        with m2:
+            st.metric("Total quantity", f"{float(r['total_quantity']):,.0f}")
+        with m3:
+            st.metric("Number of transactions", f"{float(r['number_of_transactions']):,.0f}")
+        with m4:
+            st.metric("Avg basket value", f"{float(r['avg_basket_value']):,.2f}")
+        st.divider()
 
     catalog = product_feats["StockCode"].astype(str).unique().tolist()
     bought = purchased_by_customer.get(chosen, set())
@@ -223,13 +237,24 @@ def _render_next_best_product_demo() -> None:
     cand_df["Description"] = cand_df["StockCode"].map(lambda s: descr.get(s, ""))
 
     cfg = MODELS[model_key]
-    st.caption(f"Ranking with **{cfg['name']}** (chosen between Logistic Regression and XGBoost by best F1 on metrics).")
+    st.divider()
+    st.subheader("Top Recommended Products")
+    st.caption("Products ranked by predicted probability of purchase.")
+    st.caption(
+        f"Ranked using **{cfg['name']}** (Logistic Regression vs XGBoost: best F1 on held-out metrics)."
+    )
 
     out = cand_df.rename(
         columns={"StockCode": "Product (Stock Code)", "proba": "Predicted probability"}
     )
-    out["Predicted probability"] = out["Predicted probability"].map(lambda x: f"{x:.4f}")
-    st.dataframe(out[["Product (Stock Code)", "Description", "Predicted probability"]], use_container_width=True)
+    out["Predicted probability"] = out["Predicted probability"].map(
+        lambda x: f"{float(x) * 100:.1f}%"
+    )
+    st.dataframe(
+        out[["Product (Stock Code)", "Description", "Predicted probability"]],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 
 if __name__ == "__main__":
