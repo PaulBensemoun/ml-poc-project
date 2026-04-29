@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import joblib
 import numpy as np
@@ -104,6 +104,57 @@ def _segmentation_by_spend(customer_feats: pd.DataFrame) -> pd.DataFrame:
             row("High value (top 10%)", high),
         ]
     )
+
+
+ScenarioKey = Literal["high", "medium", "low"]
+
+
+def _pick_demo_scenario_customers(customer_feats: pd.DataFrame) -> dict[ScenarioKey, str]:
+    """Pick one representative customer per spend tier (deterministic, from total_spend)."""
+    cf = customer_feats[["Customer ID", "total_spend"]].copy()
+    cf["Customer ID"] = cf["Customer ID"].astype(str)
+    spend = cf["total_spend"].astype(float)
+    q30 = float(spend.quantile(0.30))
+    q50 = float(spend.quantile(0.50))
+    q70 = float(spend.quantile(0.70))
+    q90 = float(spend.quantile(0.90))
+
+    low_pool = cf[spend <= q30]
+    med_pool = cf[(spend >= q50) & (spend <= q70)]
+    high_pool = cf[spend >= q90]
+
+    def pick_closest_to_median(pool: pd.DataFrame) -> str:
+        if pool.empty:
+            return ""
+        med = float(pool["total_spend"].median())
+        idx = (pool["total_spend"] - med).abs().idxmin()
+        return str(pool.loc[idx, "Customer ID"])
+
+    low_id = pick_closest_to_median(low_pool)
+    med_id = pick_closest_to_median(med_pool)
+    high_id = pick_closest_to_median(high_pool)
+
+    if not med_id:
+        q45, q75 = float(spend.quantile(0.45)), float(spend.quantile(0.75))
+        med_id = pick_closest_to_median(cf[(spend >= q45) & (spend <= q75)])
+    if not high_id:
+        high_id = pick_closest_to_median(cf[spend >= float(spend.quantile(0.85))])
+    if not low_id:
+        low_id = pick_closest_to_median(cf[spend <= float(spend.quantile(0.35))])
+
+    def by_quantile(q: float) -> str:
+        target = float(spend.quantile(q))
+        idx = (spend - target).abs().idxmin()
+        return str(cf.loc[idx, "Customer ID"])
+
+    if not low_id:
+        low_id = by_quantile(0.15)
+    if not med_id:
+        med_id = by_quantile(0.60)
+    if not high_id:
+        high_id = by_quantile(0.95)
+
+    return {"high": high_id, "medium": med_id, "low": low_id}
 
 
 def _render_customer_product_insights() -> None:
@@ -355,13 +406,30 @@ def _render_next_best_product_demo() -> None:
             "average_price",
         ]
 
-    cust_ids = sorted(customer_feats["Customer ID"].astype(str).unique())
-    if not cust_ids:
+    if customer_feats.empty:
         st.info("No customers found in dataset.")
         return
 
-    st.markdown("###### Customer selection")
-    chosen = st.selectbox("Select a Customer", options=cust_ids, index=0)
+    scenario_customers = _pick_demo_scenario_customers(customer_feats)
+    scenario_options: list[tuple[str, ScenarioKey]] = [
+        ("High-value customer", "high"),
+        ("Medium-value customer", "medium"),
+        ("Low-value customer", "low"),
+    ]
+    scenario_label_to_key = dict(scenario_options)
+
+    st.markdown("###### Customer scenario")
+    picked_label = st.radio(
+        "Select customer scenario",
+        options=[label for label, _ in scenario_options],
+        horizontal=True,
+    )
+    scenario_key = scenario_label_to_key[picked_label]
+    chosen = scenario_customers[scenario_key]
+    st.caption(
+        f"Representative **{picked_label.lower()}** for this demo — ID `{chosen}` "
+        "(selected from spend tiers on the full customer base)."
+    )
 
     pf_row = customer_feats[customer_feats["Customer ID"].astype(str) == chosen]
     if not pf_row.empty:
@@ -379,31 +447,42 @@ def _render_next_best_product_demo() -> None:
         st.markdown("")
 
     st.markdown("###### Recommendation scenario")
+    segment_objectives: dict[ScenarioKey, str] = {
+        "high": (
+            "For **high-value** shoppers the emphasis is **cross-sell** and **premium** "
+            "items. The objective is to maximise basket value through premium and "
+            "high-affinity cross-sell opportunities."
+        ),
+        "medium": (
+            "For **mid-value** shoppers the emphasis is **basket size** and **discovery**. "
+            "The objective is to increase basket size by suggesting relevant and "
+            "complementary products."
+        ),
+        "low": (
+            "For **low-value** shoppers the emphasis is **engagement** and **conversion** "
+            "(bringing them back). The objective is to re-engage this customer with "
+            "accessible and popular products to increase purchase frequency."
+        ),
+    }
     st.markdown(
         f"""
 For **customer `{chosen}`**, we emulate a plausible **online shop visit**: scoring focuses on SKU–customer pairs **not purchased before** by this shopper,
-so rankings reflect a realistic **browse or replenishment journey**. The objective is personalised **cross-sell**: grow **basket size** and encourage **additional purchases** with offers tailored to this account.
+so rankings reflect a realistic **browse or replenishment journey**.
+
+{segment_objectives[scenario_key]}
         """
     )
-    _spend_all = customer_feats["total_spend"].astype(float)
-    _q50 = float(_spend_all.quantile(0.5))
-    _q90 = float(_spend_all.quantile(0.90))
-    _ts = (
-        float(pf_row.iloc[0]["total_spend"])
-        if not pf_row.empty
-        else _q50
-    )
-    if _ts > _q90:
+    if scenario_key == "high":
         st.success(
-            f"**High-value customer** (`{chosen}`) — spend in the top ~10% of shoppers in this base."
+            "**High-value customer** — spend in the top ~10% of shoppers"
         )
-    elif _ts > _q50:
+    elif scenario_key == "medium":
         st.info(
-            f"**Medium-value customer** (`{chosen}`) — spend between the median and the top decile."
+            "**Mid-value customer** — typical shopper with moderate spend and frequency"
         )
     else:
         st.warning(
-            f"**Low-value customer** (`{chosen}`) — spend at or below the median spend."
+            "**Low-value customer** — occasional shopper with low total spend"
         )
 
     st.markdown("")
