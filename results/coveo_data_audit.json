@@ -1,0 +1,236 @@
+{
+  "browsing": {
+    "path": "data/coveo/raw/browsing_train.csv",
+    "columns": [
+      "session_id_hash",
+      "event_type",
+      "product_action",
+      "product_sku_hash",
+      "server_timestamp_epoch_ms",
+      "hashed_url"
+    ],
+    "rows": 36079307,
+    "unique_sessions": 4934699,
+    "unique_products": 57483,
+    "product_event_rows": 10431611,
+    "timestamp_min_epoch_ms": 1547528564513,
+    "timestamp_max_epoch_ms": 1555300798560,
+    "event_type_counts": [
+      {
+        "value": "pageview",
+        "count": 25647696
+      },
+      {
+        "value": "event_product",
+        "count": 10431611
+      }
+    ],
+    "product_action_counts": [
+      {
+        "value": "<empty>",
+        "count": 25647696
+      },
+      {
+        "value": "detail",
+        "count": 9707890
+      },
+      {
+        "value": "add",
+        "count": 329557
+      },
+      {
+        "value": "remove",
+        "count": 316316
+      },
+      {
+        "value": "purchase",
+        "count": 77848
+      }
+    ],
+    "missing_counts": {
+      "product_action": 25647696,
+      "product_sku_hash": 25647696
+    },
+    "session_length": {
+      "min": 1,
+      "p25": 2,
+      "median": 3,
+      "p75": 8,
+      "p90": 17,
+      "p95": 27,
+      "max": 206
+    },
+    "sessions_with_detail": 3260353,
+    "sessions_with_add": 214684,
+    "sessions_with_purchase": 53209,
+    "sessions_with_remove": 57441
+  },
+  "search": {
+    "path": "data/coveo/raw/search_train.csv",
+    "columns": [
+      "session_id_hash",
+      "query_vector",
+      "clicked_skus_hash",
+      "product_skus_hash",
+      "server_timestamp_epoch_ms"
+    ],
+    "rows": 819516,
+    "unique_sessions": 550100,
+    "timestamp_min_epoch_ms": 1547528689952,
+    "timestamp_max_epoch_ms": 1555300782074,
+    "rows_with_results": 602754,
+    "rows_with_clicks": 179495,
+    "result_count_histogram_top": [
+      {
+        "value": "1",
+        "count": 602754
+      },
+      {
+        "value": "0",
+        "count": 216762
+      }
+    ],
+    "clicked_count_histogram_top": [
+      {
+        "value": "0",
+        "count": 640021
+      },
+      {
+        "value": "1",
+        "count": 179495
+      }
+    ],
+    "missing_counts": {
+      "clicked_skus_hash": 640021,
+      "product_skus_hash": 216762
+    }
+  },
+  "content": {
+    "path": "data/coveo/raw/sku_to_content.csv",
+    "columns": [
+      "product_sku_hash",
+      "description_vector",
+      "category_hash",
+      "image_vector",
+      "price_bucket"
+    ],
+    "rows": 66386,
+    "unique_products": 66386,
+    "rows_with_description_vector": 31950,
+    "rows_with_image_vector": 28370,
+    "category_counts_top": [
+      {
+        "value": "<empty>",
+        "count": 34334
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/a140250159ef8df5e64afa36973cefbb2b28e7b5fe0e40a3fd590238e49166da/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 4659
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/285f066ea7608b0ef28f21b6cb7660b95edbc1ebe09c783d824fa8d67cf4ade2/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 2386
+      },
+      {
+        "value": "115a6a7017ee55752b8487c77dfde92b0d501d10a2e69c420d5d535205b27f81/984ecbf26bfdda5928adb40ac89c37d0b90bf80b08d0afbb565fdf692e22e2d8/cb682b47227164bad62a677f3af90f5a4e71accc5f988e687d006d36130cd6d8",
+        "count": 2252
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/e1fa679aaabbe4a6401748efae18112513767c003283bc3f69aca78b46913c40/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 2091
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/49d80fcbc8128f7ea2bfa33cc9e8405f6b604efbbdd8fd77b06ebe367403b2ab/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 946
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/f549918f716c59de0018c6252a3d95db8ddf857c02399cc29d72613cf565d0dc/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 916
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/b0d5cff85f451ca2353ab0ed340f1a644bfb45f6c7c7fd8433922ea2a584744a/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 893
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/807b809cc3d7e49547aa339d0620743b38d90afbfa442712a73a06a0616f51be/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 803
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/0e566c6d47aa4853858d8a965cc8ea5195fd23555364a4ac4f74074c5e6b7b87/7279e67dc98586a6003e64e56312b32c9ea54679af8f5ee61d5e35d24911bd49",
+        "count": 801
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/49d80fcbc8128f7ea2bfa33cc9e8405f6b604efbbdd8fd77b06ebe367403b2ab/115a6a7017ee55752b8487c77dfde92b0d501d10a2e69c420d5d535205b27f81",
+        "count": 754
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/a140250159ef8df5e64afa36973cefbb2b28e7b5fe0e40a3fd590238e49166da/40bedcb31ff381812ff2e840fcc203a242dfa9472d25dd835594f09199de49bc",
+        "count": 631
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/a140250159ef8df5e64afa36973cefbb2b28e7b5fe0e40a3fd590238e49166da/87447212ad2d8df7607ff81d4a499123d0b99d0f1ea1f55c0816ef3ebf061229",
+        "count": 630
+      },
+      {
+        "value": "06fa312761d4b39e2f649781514ac69a4c1505c221fc463426d38a2de1679683/d9b4e049a464440978b536971ee9dd7c238f6b731e829871b703e545ed5dbf66/115a6a7017ee55752b8487c77dfde92b0d501d10a2e69c420d5d535205b27f81",
+        "count": 614
+      },
+      {
+        "value": "0665a81d19c89281cc00e7f7d779ded2ed42c933838602c303f2364d8e6b7059/a140250159ef8df5e64afa36973cefbb2b28e7b5fe0e40a3fd590238e49166da/dc20b96c06e7fe6089f102a7a3ea60692159cddb1631733c1e581af2d985e67f",
+        "count": 598
+      }
+    ],
+    "price_bucket_counts": [
+      {
+        "value": "<empty>",
+        "count": 34348
+      },
+      {
+        "value": "4.0",
+        "count": 3409
+      },
+      {
+        "value": "3.0",
+        "count": 3350
+      },
+      {
+        "value": "9.0",
+        "count": 3238
+      },
+      {
+        "value": "10.0",
+        "count": 3201
+      },
+      {
+        "value": "1.0",
+        "count": 3198
+      },
+      {
+        "value": "7.0",
+        "count": 3191
+      },
+      {
+        "value": "8.0",
+        "count": 3183
+      },
+      {
+        "value": "2.0",
+        "count": 3103
+      },
+      {
+        "value": "5.0",
+        "count": 3086
+      },
+      {
+        "value": "6.0",
+        "count": 3079
+      }
+    ],
+    "missing_counts": {
+      "description_vector": 34436,
+      "category_hash": 34334,
+      "image_vector": 38016,
+      "price_bucket": 34348
+    }
+  }
+}
