@@ -1,0 +1,38 @@
+{
+  "champion_label": "LogReg credits (tuned) \u2014 cleaned feature set",
+  "use_full_features": false,
+  "selection_criterion": "Refit with cleaned feature set (dropped duplicate budget / release_quarter / release_season / director_bucket) to remove multicollinearity in the LR coefficients.",
+  "dropped_features": [
+    "budget",
+    "release_quarter",
+    "release_season",
+    "director_bucket"
+  ],
+  "final_features": [
+    "runtime",
+    "main_genre",
+    "original_language",
+    "release_month",
+    "genre_count",
+    "production_company_count",
+    "production_country_count",
+    "spoken_language_count",
+    "budget_log",
+    "runtime_bucket",
+    "international_production",
+    "multilingual_movie",
+    "genre_complexity",
+    "decade",
+    "production_scale",
+    "director_movie_count",
+    "top_director_flag",
+    "top_billed_cast_count",
+    "known_actor_count",
+    "cast_size",
+    "crew_size",
+    "writer_count",
+    "possible_franchise_flag",
+    "ensemble_cast_flag",
+    "talent_score"
+  ]
+}

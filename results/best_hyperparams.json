@@ -1,0 +1,30 @@
+{
+  "LogReg credits (tuned)": {
+    "C": 0.23345864076016243
+  },
+  "LogReg credits + overview (tuned)": {
+    "C": 3.142880890840109
+  },
+  "RandomForest credits (tuned)": {
+    "max_depth": 9,
+    "max_features": "log2",
+    "min_samples_leaf": 4,
+    "min_samples_split": 6,
+    "n_estimators": 360
+  },
+  "GradientBoosting credits (tuned)": {
+    "learning_rate": 0.07766184280392888,
+    "max_depth": 4,
+    "n_estimators": 413,
+    "subsample": 0.7103165563345655
+  },
+  "XGBoost credits (tuned)": {
+    "colsample_bytree": 0.749816047538945,
+    "learning_rate": 0.22073847501468546,
+    "max_depth": 5,
+    "min_child_weight": 5,
+    "n_estimators": 170,
+    "reg_lambda": 0.003776663327107336,
+    "subsample": 0.7467983561008608
+  }
+}

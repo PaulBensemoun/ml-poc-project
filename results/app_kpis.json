@@ -1,0 +1,28 @@
+{
+  "n_movies_total": 3229,
+  "n_test": 646,
+  "champion_model_name": "Tuned Logistic Regression — cleaned features (no multicollinearity)",
+  "champion_accuracy": 0.4783,
+  "champion_macro_f1": 0.4445,
+  "champion_log_loss": 1.0357,
+  "champion_cv_macro_f1_mean": 0.4409,
+  "champion_cv_macro_f1_std": 0.0109,
+  "f1_flop": 0.4405,
+  "f1_average": 0.3041,
+  "f1_hit": 0.5890,
+  "n_stable_correct": 175,
+  "n_stable_wrong": 262,
+  "n_wrong_to_correct": 130,
+  "n_correct_to_wrong": 79,
+  "previous_champion_macro_f1": 0.4379,
+  "improvement_macro_f1_pp": 0.66,
+  "models_explored": [
+    {"name": "LogReg credits (baseline)", "test_macro_f1": 0.4378, "test_accuracy": 0.4721},
+    {"name": "LogReg credits (tuned, original feature set)", "test_macro_f1": 0.4504, "test_accuracy": 0.4845},
+    {"name": "LogReg credits (tuned, cleaned feature set ← champion)", "test_macro_f1": 0.4445, "test_accuracy": 0.4783},
+    {"name": "RandomForest credits (tuned)", "test_macro_f1": 0.4405, "test_accuracy": 0.4892},
+    {"name": "GradientBoosting credits (tuned)", "test_macro_f1": 0.4251, "test_accuracy": 0.5557},
+    {"name": "XGBoost credits (tuned)", "test_macro_f1": 0.4062, "test_accuracy": 0.5387},
+    {"name": "LR tuned + isotonic calibration", "test_macro_f1": 0.368, "test_accuracy": 0.5743}
+  ]
+}

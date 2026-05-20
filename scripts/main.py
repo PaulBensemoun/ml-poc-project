@@ -138,6 +138,8 @@ def _launch_streamlit() -> None:
 
 
 def main() -> None:
+    evaluate_only = "--evaluate-only" in sys.argv
+
     _validate_app_entrypoint()
     _validate_models_config()
 
@@ -161,6 +163,11 @@ def main() -> None:
 
     print("Model evaluation completed. Metrics saved to results/model_metrics.csv")
     print(metrics_df.to_string(index=False))
+
+    if evaluate_only:
+        print("\nSkipping Streamlit launch (--evaluate-only).")
+        return
+
     print(f"\nLaunching Streamlit on http://{STREAMLIT_HOST}:{STREAMLIT_PORT} ...")
 
     _launch_streamlit()

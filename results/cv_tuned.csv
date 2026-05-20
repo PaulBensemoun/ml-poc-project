@@ -1,0 +1,6 @@
+model,macro_f1_mean,macro_f1_std,best_params,elapsed_s
+LogReg credits (tuned),0.4409273116070646,0.010869830079077578,"{""C"": 0.23345864076016243}",2.2
+LogReg credits + overview (tuned),0.44870557399033106,0.01527292589609834,"{""C"": 3.142880890840109}",4.5
+RandomForest credits (tuned),0.4597264061900316,0.017979748995412048,"{""max_depth"": 9, ""max_features"": ""log2"", ""min_samples_leaf"": 4, ""min_samples_split"": 6, ""n_estimators"": 360}",49.0
+GradientBoosting credits (tuned),0.42239010180196745,0.027986612512816922,"{""learning_rate"": 0.07766184280392888, ""max_depth"": 4, ""n_estimators"": 413, ""subsample"": 0.7103165563345655}",156.4
+XGBoost credits (tuned),0.43185357107156835,0.020537933228593284,"{""colsample_bytree"": 0.749816047538945, ""learning_rate"": 0.22073847501468546, ""max_depth"": 5, ""min_child_weight"": 5, ""n_estimators"": 170, ""reg_lambda"": 0.003776663327107336, ""subsample"": 0.7467983561008608}",18.1

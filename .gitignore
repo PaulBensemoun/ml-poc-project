@@ -182,6 +182,10 @@ http-client.private.env.json
 
 # PROJECT SPECIFIC
 
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
 # Logs (keep directory via .gitkeep)
 logs/*
 !logs/.gitkeep
